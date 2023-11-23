@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shopping_list/data/categories.dart';
+import 'package:shopping_list/models/category.dart';
 
 class NewItem extends StatefulWidget {
   const NewItem({super.key});
@@ -12,13 +13,21 @@ class NewItem extends StatefulWidget {
 
 class _NewItemState extends State<NewItem> {
   final _formKey = GlobalKey<FormState>();
+  var _enteredName = '';
+  var _enteredQuantity = 1;
+  var _selectedCategory = categories[Categories.vegetables]!; //value is not null
 
-  void _saveItem(){
+  void _saveItem() {
     //here we check validations
-    // ! means that _formKey will exist and is connected the the form
+    // ! means that _formKey will exist and is connected the thfore form
     //validate will exetute validator functions in a TextFormField
     // returns true if all validations are passed
-    _formKey.currentState!.validate();
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      print(_enteredName);
+      print(_enteredQuantity);
+      print(_selectedCategory);
+    }
   }
 
   @override
@@ -49,6 +58,14 @@ class _NewItemState extends State<NewItem> {
                   }
                   return null;
                 },
+                onSaved: (value) {
+                  // if (value == null) {
+                  //   return;
+                  // }
+                  // we don't need to wrope it weth setState method, because we don't need to update ui
+                  _enteredName =
+                      value!; // user input; ! means that there will be a value, othervise validator will work first
+                },
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment
@@ -60,7 +77,7 @@ class _NewItemState extends State<NewItem> {
                         label: Text('Quantity'),
                       ),
                       keyboardType: TextInputType.number,
-                      initialValue: '1',
+                      initialValue: _enteredQuantity.toString(),
                       validator: (value) {
                         if (value == null ||
                             value.isEmpty ||
@@ -70,11 +87,15 @@ class _NewItemState extends State<NewItem> {
                         }
                         return null;
                       },
+                      onSaved: (value) {
+                        _enteredQuantity = int.parse(value!); // value will not be null, because we check it in validator
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField(
+                      value: _selectedCategory, //initial value first time
                       items: [
                         for (final category in categories.entries)
                           DropdownMenuItem(
@@ -92,7 +113,13 @@ class _NewItemState extends State<NewItem> {
                             ),
                           ),
                       ],
-                      onChanged: (value) {},
+                      onChanged: (value) {
+                        setState(() {
+                          // we need to make sure that build method is executed
+                          // and make sure that ui is changet whenever we make a selection
+                          _selectedCategory = value!;
+                        });
+                      },
                     ),
                   )
                 ],
