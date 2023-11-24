@@ -23,7 +23,7 @@ class _NewItemState extends State<NewItem> {
   var _selectedCategory =
       categories[Categories.vegetables]!; //value is not null
 
-  void _saveItem() {
+  void _saveItem() async {
     //here we check validations
     // ! means that _formKey will exist and is connected the thfore form
     //validate will exetute validator functions in a TextFormField
@@ -33,16 +33,27 @@ class _NewItemState extends State<NewItem> {
       final url = Uri.https(
           'flutter-prep1-4f071-default-rtdb.asia-southeast1.firebasedatabase.app',
           'shopping-list.json');
-      http.post(url,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: json.encode({
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(
+          {
             'name': _enteredName,
             'quantity': _enteredQuantity,
             'category': _selectedCategory.title,
-          }));
-      // Navigator.of(context).pop();
+          },
+        ),
+      );
+      // response.statusCode == 201
+      print(response.body);
+      print(response.statusCode);
+      if (!context.mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop();
     }
   }
 
