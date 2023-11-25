@@ -15,62 +15,50 @@ class GroceryList extends StatefulWidget {
 
 class _GroceryListState extends State<GroceryList> {
   List<GroceryItem> _groceryItems = [];
-  var _isLoading = true;
+  late Future<List<GroceryItem>> _loadedItems;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadItems(); //initialization
+    _loadedItems = _loadItems(); //initialization
   }
 
-  void _loadItems() async {
+  Future<List<GroceryItem>> _loadItems() async {
     final url = Uri.https(
         'flutter-prep1-4f071-default-rtdb.asia-southeast1.firebasedatabase.app',
         'shopping-list.json');
 
-    try { // in case internet is not connected or problem with url
-      final response = await http.get(url);
+    // in case internet is not connected or problem with url
+    final response = await http.get(url);
 
-      if (response.statusCode >= 400) {
-        setState(() {
-          _error = 'Failed to fetch data, please try later again.';
-        });
-      }
-
-      if (response.body == 'null') {
-        // for firebase
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final Map<String, dynamic> listData = json.decode(response.body);
-      final List<GroceryItem> loadedItems = [];
-      for (final item in listData.entries) {
-        final category = categories.entries
-            .firstWhere(
-                (catItem) => catItem.value.title == item.value['category'])
-            .value;
-        loadedItems.add(
-          GroceryItem(
-            id: item.key,
-            name: item.value['name'],
-            quantity: item.value['quantity'],
-            category: category,
-          ),
-        );
-      }
-      setState(() {
-        _groceryItems = loadedItems;
-        _isLoading = false;
-      });
-    } catch (error) {
-      setState(() {
-        _error = 'Something went wrong! Please try later again.';
-      });
+    if (response.statusCode >= 400) {
+      // setState(() {
+      //   _error = 'Failed to fetch data, please try later again.';
+      // });
     }
+
+    if (response.body == 'null') {
+      return [];
+    }
+
+    final Map<String, dynamic> listData = json.decode(response.body);
+    final List<GroceryItem> loadedItems = [];
+    for (final item in listData.entries) {
+      final category = categories.entries
+          .firstWhere(
+              (catItem) => catItem.value.title == item.value['category'])
+          .value;
+      loadedItems.add(
+        GroceryItem(
+          id: item.key,
+          name: item.value['name'],
+          quantity: item.value['quantity'],
+          category: category,
+        ),
+      );
+    }
+    return loadedItems;
   }
 
   void _addItem() async {
@@ -101,51 +89,12 @@ class _GroceryListState extends State<GroceryList> {
 
     final response = await http.delete(url);
     if (response.statusCode >= 400) {
-      // Optionl: show error message
-      setState(() {
-        _groceryItems.insert(index, item);
-      });
+      throw Exception('Fail to fetch grocery items. Please try again later.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget content = const Center(
-      child: Text('No items found. Start adding new item.'),
-    );
-
-    if (_isLoading) {
-      content = const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_groceryItems.isNotEmpty) {
-      content = ListView.builder(
-        itemCount: _groceryItems.length,
-        itemBuilder: (ctx, index) => Dismissible(
-          key: ValueKey(_groceryItems[index].id),
-          onDismissed: (direction) {
-            _removeItem(_groceryItems[index]);
-          },
-          child: ListTile(
-            title: Text(_groceryItems[index].name),
-            leading: Container(
-              //to display colored box before tex
-              width: 24,
-              height: 24,
-              color: _groceryItems[index].category.color,
-            ),
-            trailing: Text(_groceryItems[index].quantity.toString()), //
-          ),
-        ),
-      );
-    }
-
-    if (_error != null) {
-      content = Center(child: Text(_error!));
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Grocery List'),
@@ -156,7 +105,47 @@ class _GroceryListState extends State<GroceryList> {
           )
         ],
       ),
-      body: content,
+      body: FutureBuilder(
+        future: _loadedItems,
+        builder: ((context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                snapshot.error.toString(),
+              ),
+            );
+          }
+
+          if (snapshot.data!.isEmpty) {
+            return const Center(child: Text('No items added yet.'),);
+          }
+
+          return ListView.builder(
+            itemCount: snapshot.data!.length,
+            itemBuilder: (ctx, index) => Dismissible(
+              key: ValueKey(snapshot.data![index].id),
+              onDismissed: (direction) {
+                _removeItem(snapshot.data![index]);
+              },
+              child: ListTile(
+                title: Text(snapshot.data![index].name),
+                leading: Container(
+                  //to display colored box before tex
+                  width: 24,
+                  height: 24,
+                  color: snapshot.data![index].category.color,
+                ),
+                trailing: Text(snapshot.data![index].quantity.toString()), //
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
